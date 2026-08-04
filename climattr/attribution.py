@@ -409,50 +409,6 @@ def _pr_calculation(
 
 ###############################################################################
 
-def _far_calculation(
-    all_array: np.ndarray, 
-    nat_array: np.ndarray, 
-    fit_function, 
-    thresh: float,
-    direction: str = 'descending',
-    params_all: tuple | None = None,
-    params_nat: tuple | None = None) -> float:
-    """
-    Calculates the Fraction of Attributable Risk (FAR) between two datasets.
-
-    This function computes the FAR, which is a measure of the fraction of risk 
-    attributable to a specific factor, by comparing the probability ratio (PR) 
-    between the "all" and "natural" scenario datasets.
-
-    Parameters
-    ----------
-    all_array : numpy.ndarray
-        An array of shape (n_samples,) containing the "all" scenario data.
-        
-    nat_array : numpy.ndarray
-        An array of shape (n_samples,) containing the "natural" scenario data.
-        
-    fit_function : callable
-        A function that fits the input data to a distribution.
-        
-    thresh : float
-        The threshold value for which the FAR will be calculated.
-
-    direction : str, optional
-        The direction in which to calculate the return period. Default is "descending".
-
-    Returns
-    -------
-    float
-        The calculated Fraction of Attributable Risk (FAR).
-    """
-    epsilon = 1e-10  # Small constant to avoid division by a very small number    
-    return 1 - (1 / (_pr_calculation(
-        all_array, nat_array, fit_function, thresh, direction, params_all, params_nat
-    ) + epsilon))
-
-###############################################################################
-
 def _rp_calculation(
     data: np.ndarray, 
     fit_function, 
