@@ -1,5 +1,4 @@
 import numpy as np
-import pandas as pd
 
 from scipy.special import gammaln
 from statsmodels.base.model import GenericLikelihoodModel
@@ -15,21 +14,22 @@ class GEVModel(GenericLikelihoodModel):
 
     def nloglikeobs(self, params):
 
-        mu_0, sigma_0, c, alpha = params
+        mu_0, sigma_0, c = params[:3]
+        alphas = params[3:]
 
         xi = - c
 
-        global_tas = self.exog[:, 0]
+        covariates = self.exog
         x = self.endog
 
         mu_tas_est, sigma_tas_est = choose_strategy(
-            self.strategy, mu_0, sigma_0, alpha, global_tas
+            self.strategy, mu_0, sigma_0, alphas, covariates
         )
 
         t = (x - mu_tas_est) / sigma_tas_est
         arg = 1 - xi * t
         if np.any(arg <= 0):
-            return -np.inf * np.ones_like(global_tas)
+            return -np.inf * np.ones(covariates.shape[0])
 
         log_arg = np.log(arg)
         log_likelihood = -np.log(sigma_tas_est) - (1 - 1 / xi) * log_arg - arg ** (1 / xi)
@@ -39,11 +39,11 @@ class GEVModel(GenericLikelihoodModel):
     def fit(self, start_params=None, maxiter=10000, maxfun=5000, **kwargs):
         # Provide starting values if not set
         if start_params is None:
+            n_covariates = self.exog.shape[1]
             mu_0_start = np.mean(self.endog)
             sigma_0_start = np.std(self.endog)
-            alpha_start = 0.0
             c_start = - 0.1
-            start_params = np.array([mu_0_start, sigma_0_start, c_start, alpha_start])
+            start_params = np.array([mu_0_start, sigma_0_start, c_start, *np.zeros(n_covariates)])
 
         # Call the superclass fit method
         return super(GEVModel, self).fit(
@@ -61,15 +61,16 @@ class NormModel(GenericLikelihoodModel):
 
     def nloglikeobs(self, params):
 
-        mu_0, sigma_0, c, alpha = params
+        mu_0, sigma_0, c = params[:3]
+        alphas = params[3:]
 
-        global_tas = self.exog[:, 0]
+        covariates = self.exog
         x = self.endog
 
         mu_tas_est, sigma_tas_est = choose_strategy(
-            self.strategy, mu_0, sigma_0, alpha, global_tas
+            self.strategy, mu_0, sigma_0, alphas, covariates
         )
-        
+
         log_likelihood = - np.log(sigma_tas_est ** 2) - (x - mu_tas_est) ** 2 / sigma_tas_est ** 2
 
         return - log_likelihood
@@ -77,11 +78,11 @@ class NormModel(GenericLikelihoodModel):
     def fit(self, start_params=None, maxiter=10000, maxfun=5000, **kwargs):
         # Provide starting values if not set
         if start_params is None:
+            n_covariates = self.exog.shape[1]
             mu_0_start = np.mean(self.endog)
             sigma_0_start = np.std(self.endog)
-            alpha_start = 0.0
             c_start = - 0.1
-            start_params = np.array([mu_0_start, sigma_0_start, c_start, alpha_start])
+            start_params = np.array([mu_0_start, sigma_0_start, c_start, *np.zeros(n_covariates)])
 
         # Call the superclass fit method
         return super(NormModel, self).fit(
@@ -99,20 +100,21 @@ class GammaModel(GenericLikelihoodModel):
 
     def nloglikeobs(self, params):
 
-        mu_0, sigma_0, c, alpha = params
+        mu_0, sigma_0, c = params[:3]
+        alphas = params[3:]
 
         xi = - c
 
-        global_tas = self.exog[:, 0]
+        covariates = self.exog
         x = self.endog
 
         mu_tas_est, sigma_tas_est = choose_strategy(
-            self.strategy, mu_0, sigma_0, alpha, global_tas
+            self.strategy, mu_0, sigma_0, alphas, covariates
         )
 
         if xi <= 0:
-            return -np.inf * np.ones_like(global_tas)
-        
+            return -np.inf * np.ones(covariates.shape[0])
+
         # Compute the log-likelihood
         log_likelihood = (xi - 1) * np.log(x) - \
             x / sigma_tas_est - \
@@ -124,11 +126,11 @@ class GammaModel(GenericLikelihoodModel):
     def fit(self, start_params=None, maxiter=10000, maxfun=5000, **kwargs):
         # Provide starting values if not set
         if start_params is None:
+            n_covariates = self.exog.shape[1]
             mu_0_start = np.mean(self.endog)
             sigma_0_start = np.std(self.endog)
-            alpha_start = 0.0
             c_start = - 0.1
-            start_params = np.array([mu_0_start, sigma_0_start, c_start, alpha_start])
+            start_params = np.array([mu_0_start, sigma_0_start, c_start, *np.zeros(n_covariates)])
 
         # Call the superclass fit method
         return super(GammaModel, self).fit(
@@ -146,15 +148,16 @@ class GPDModel(GenericLikelihoodModel):
 
     def nloglikeobs(self, params):
 
-        mu_0, sigma_0, c, alpha = params
+        mu_0, sigma_0, c = params[:3]
+        alphas = params[3:]
 
         xi = - c
 
-        global_tas = self.exog[:, 0]
+        covariates = self.exog
         x = self.endog
 
         mu_tas_est, sigma_tas_est = choose_strategy(
-            self.strategy, mu_0, sigma_0, alpha, global_tas
+            self.strategy, mu_0, sigma_0, alphas, covariates
         )
 
         # Compute shifted data
@@ -166,7 +169,7 @@ class GPDModel(GenericLikelihoodModel):
 
             # Check the constraint t > 0 for all data points
             if np.any(t <= 0):
-                return -np.inf * np.ones_like(global_tas)
+                return -np.inf * np.ones(covariates.shape[0])
 
             # Compute the log-likelihood
             log_likelihood = np.log(sigma_tas_est) - (1 / xi + 1) * t
@@ -179,11 +182,11 @@ class GPDModel(GenericLikelihoodModel):
     def fit(self, start_params=None, maxiter=10000, maxfun=5000, **kwargs):
         # Provide starting values if not set
         if start_params is None:
+            n_covariates = self.exog.shape[1]
             mu_0_start = np.mean(self.endog)
             sigma_0_start = np.std(self.endog)
-            alpha_start = 0.0
             c_start = - 0.1
-            start_params = np.array([mu_0_start, sigma_0_start, c_start, alpha_start])
+            start_params = np.array([mu_0_start, sigma_0_start, c_start, *np.zeros(n_covariates)])
 
         # Call the superclass fit method
         return super(GPDModel, self).fit(

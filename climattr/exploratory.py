@@ -11,7 +11,6 @@ import scipy.stats
 from climattr.attribution import _rp_plot_data
 from climattr.utils import (
     get_xy_coords,
-    find_nearest, 
     get_percentiles_from_ci,
     add_features,
     calculate_anomalies
@@ -105,35 +104,46 @@ def rp_plot(
     highlight_year: int | None = 1999,
     direction: str = 'descending',
     bootstrap_ci: int | None = 95,
-    boot_size: int = 1000) -> None:
+    boot_size: int = 1000,
+    max_return_period: float = 10000,
+    span_size: float = 0.04) -> None:
     """
-    Plot a return period graph on the given axis with optional highlighting 
+    Plot a return period graph on the given axis with optional highlighting
     of a specific year and confidence intervals.
 
     Parameters
     ----------
     ax : matplotlib.axes.Axes
         The axis on which to plot the return period.
-    
+
     data : xr.DataArray
         The data array containing the observations to be used for the plot.
-    
+
     fit_function : function
         The function used to fit the return period distribution.
-    
+
     highlight_year : int or None, optional, default = 1999
-        The specific year to be highlighted on the plot. If None, no year 
+        The specific year to be highlighted on the plot. If None, no year
         is highlighted.
-    
+
     direction : str, optional, default = 'descending'
-        The direction of the data ordering for the return period plot. 
+        The direction of the data ordering for the return period plot.
         It can be 'ascending' or 'descending'.
-    
+
     bootstrap_ci : int, optional, default = 95
         The confidence interval percentage for the bootstrap method.
-    
+
     boot_size : int, optional, default = 1000
         The number of bootstrap samples to be used.
+
+    max_return_period : float, optional, default = 10000
+        The largest return period (in years) the fitted curve should be
+        extrapolated out to.
+
+    span_size : float, optional, default = 0.04
+        Fraction of the axes the return-period `axvspan` is drawn as,
+        hugging the bottom edge instead of reaching all the way up to the
+        highlighted year's threshold line.
 
     Returns
     -------
@@ -143,39 +153,47 @@ def rp_plot(
     validate_direction(direction)
     validate_ci(bootstrap_ci)
 
-    dataframe = data.to_dataframe().reset_index() 
+    dataframe = data.to_dataframe().reset_index()
     data_array = np.sort(dataframe[data.name].values.flatten())
 
     if direction == 'descending':
         data_array = data_array[::-1]
 
-    conf_rp_inf, conf_rp_sup = _rp_plot_data(
-        data_array, fit_function, 'C0', 'OBS', ax, direction, bootstrap_ci, boot_size
-    )
-
+    thresh = None
     if highlight_year:
         dataframe['year'] = dataframe['time'].dt.year
         dataframe_year = dataframe.loc[
             dataframe['year'] == highlight_year, [data.name, 'time']
         ]
-  
         thresh = dataframe_year[data.name].iloc[0]
+
+    result = _rp_plot_data(
+        data_array, fit_function, 'C0', 'OBS', ax, direction, bootstrap_ci, boot_size,
+        max_return_period=max_return_period, thresh=thresh
+    )
+
+    if highlight_year:
         ax.axhline(thresh, color='r', ls='--')
         ax.text(
-            1, 
-            dataframe_year[data.name].iloc[0], 
-            f'th = {dataframe_year[data.name].iloc[0]:.3f}', 
-            color='r', 
+            1,
+            thresh,
+            f'th = {thresh:.3f}',
+            color='r',
             va='bottom'
-        ) 
+        )
 
-        # add return period estimate for OBS
-        if bootstrap_ci:
-            idx = find_nearest(thresh, data_array)
-            ymin, ymax = ax.get_ylim()
+        # shade the CI of the return period of `thresh`, read directly off
+        # the plotted curve CI band (where it crosses `thresh`) rather than
+        # a rank-index lookup into a bootstrap of the per-point
+        # return_period array, so the two are consistent by construction;
+        # only drawn if `thresh` genuinely falls within both edges of the
+        # band across [1, max_return_period] (see _rp_plot_data)
+        conf_rp_inf, conf_rp_sup = result['thresh_rp_ci']
+
+        if conf_rp_inf is not None:
             ax.axvspan(
-                conf_rp_inf[idx], conf_rp_sup[idx], 
-                ymin=0, ymax=(thresh - ymin)/ (ymax - ymin),
+                conf_rp_inf, conf_rp_sup,
+                ymin=0, ymax=span_size,
                 facecolor='silver', edgecolor='C0',
                 linewidth=2., alpha=0.3, zorder=0
             )
