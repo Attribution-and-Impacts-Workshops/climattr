@@ -1,4 +1,5 @@
 from climattr import attribution
+from climattr import attribution_wwa
 from climattr import correction
 from climattr import exploratory
 from climattr import filter
@@ -6,3 +7,4 @@ from climattr import validation
 from climattr import utils
 from climattr import indice
 from climattr import impacts
+from climattr.metrics import attribution_metrics
