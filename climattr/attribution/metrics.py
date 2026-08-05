@@ -1,7 +1,6 @@
 import pandas as pd
 
-from climattr import attribution
-from climattr import attribution_wwa
+from climattr.attribution import risk_based, wwa
 
 
 def attribution_metrics(
@@ -15,7 +14,7 @@ def attribution_metrics(
     list applies unchanged.
 
     - method='wwa' (default): delegates to
-      `climattr.attribution_wwa.attribution_metrics(all, covariates_df,
+      `climattr.attribution.wwa.attribution_metrics(all, covariates_df,
       fit_function_name, cov_f, cov_cf, strategy='linear', ev=None,
       rp=None, direction='descending', bootstrap_ci=95, boot_size=500,
       seed=42, n_jobs=-1, return_sample=False)`. Evaluates the fitted
@@ -26,15 +25,16 @@ def attribution_metrics(
       approach.
 
     - method='shift': delegates to
-      `climattr.attribution.attribution_metrics(all, nat, fit_function,
-      thresh, direction='descending', bootstrap_ci=95, boot_size=1000,
-      summary_statistics=True, n_jobs=-1)`. `all`/`nat` must already be
-      WWA-shifted series (e.g. via `climattr.minimization.fit.shift_data`
-      / `get_wwa_series`) and `fit_function` a scipy.stats distribution
-      object (not a name string). Bootstraps by resampling each shifted
-      series independently and refitting a stationary distribution to it.
-      Returns PR, FAR (Fraction of Attributable Risk) and return periods
-      for the ALL/NAT climates - the classic WWA event-shifting approach.
+      `climattr.attribution.risk_based.attribution_metrics(all, nat,
+      fit_function, thresh, direction='descending', bootstrap_ci=95,
+      boot_size=1000, summary_statistics=True, n_jobs=-1)`. `all`/`nat`
+      must already be WWA-shifted series (e.g. via
+      `climattr.minimization.fit.shift_data` / `get_wwa_series`) and
+      `fit_function` a scipy.stats distribution object (not a name
+      string). Bootstraps by resampling each shifted series independently
+      and refitting a stationary distribution to it. Returns PR, FAR
+      (Fraction of Attributable Risk) and return periods for the ALL/NAT
+      climates - the classic WWA event-shifting approach.
 
     Parameters
     ----------
@@ -51,10 +51,10 @@ def attribution_metrics(
         `method` - see the two underlying functions for details.
     """
     if method == 'wwa':
-        return attribution_wwa.attribution_metrics(**kwargs)
+        return wwa.attribution_metrics(**kwargs)
 
     if method == 'shift':
-        return attribution.attribution_metrics(**kwargs)
+        return risk_based.attribution_metrics(**kwargs)
 
     raise ValueError(f"Unknown method '{method}': expected 'wwa' or 'shift'")
 

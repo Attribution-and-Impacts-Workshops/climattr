@@ -115,13 +115,16 @@ def dist_args(
     -----------
     fit_function_name : str
         The name of the distribution ('norm', 'genextreme', 'gamma',
-        'genpareto').
+        'genpareto', 'gumbel_r', 'weibull_min', 'expon', 'lognorm').
     mu : float
-        The estimated location (μ) at some covariate value.
+        The estimated location (μ) at some covariate value. For 'lognorm',
+        this is the mean of log(x) rather than of x itself (see below).
     sigma : float
-        The estimated scale (σ) at some covariate value.
+        The estimated scale (σ) at some covariate value. For 'lognorm',
+        this is the std of log(x) rather than of x itself (see below).
     c : float
-        The fitted shape parameter (unused for 'norm').
+        The fitted shape parameter (unused for 'norm', 'gumbel_r', 'expon'
+        and 'lognorm').
 
     Returns:
     --------
@@ -132,7 +135,13 @@ def dist_args(
         'norm': [mu, sigma],
         'genextreme': [c, mu, sigma],
         'gamma': [c, mu, sigma],
-        'genpareto': [c, mu, sigma]
+        'genpareto': [c, mu, sigma],
+        'gumbel_r': [mu, sigma],
+        'weibull_min': [c, mu, sigma],
+        'expon': [mu, sigma],
+        # LognormModel fits mu/sigma as the mean/std of log(x); scipy's
+        # lognorm expects [s, loc, scale] = [sigma, 0, exp(mu)]
+        'lognorm': [sigma, 0, np.exp(mu)],
     }
 
     return dist_params[fit_function_name]

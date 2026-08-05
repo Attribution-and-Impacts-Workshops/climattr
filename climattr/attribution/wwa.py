@@ -3,12 +3,11 @@ import pandas as pd
 import xarray as xr
 
 from datetime import datetime
-import statsmodels.api as sm
 from joblib import Parallel, delayed
 from scipy import stats
-from typing import List, Union
+from typing import Union
 
-from climattr.attribution import (
+from climattr.attribution.utils import (
     _pr_calculation,
     _rp_calculation,
     _calc_bootstrap_ensemble,
@@ -82,15 +81,8 @@ def fit_summary(
 
     cov_columns = covariates_df.columns.tolist()
 
-    fit_functions = {
-        'genextreme': likelihood.GEVModel,
-        'norm': likelihood.NormModel,
-        'gamma': likelihood.GammaModel,
-        'genpareto': likelihood.GPDModel
-    }
-
     # Point estimate on full dataset
-    model = fit_functions[fit_function_name](
+    model = likelihood.FIT_FUNCTIONS[fit_function_name](
         dataframe[all.name], dataframe[cov_columns].values, strategy=strategy
     )
     result = model.fit(disp=verbose)
@@ -124,7 +116,7 @@ def fit_summary(
         dataframe_boot = dataframe.iloc[indices_boot[boot]].sort_index().dropna()
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
-            model_boot = fit_functions[fit_function_name](
+            model_boot = likelihood.FIT_FUNCTIONS[fit_function_name](
                 dataframe_boot[all.name], dataframe_boot[cov_columns].values, strategy=strategy
             )
             try:
@@ -529,7 +521,7 @@ def attribution_metrics(
 
 # def rp_plot(
 #     ax,
-#     all: xr.DataArray, 
+#     all: xr.DataArray,
 #     global_tas: pd.DataFrame,
 #     fit_function_name: str,
 #     all_date: Union[datetime, str] = '2015-11-30',
@@ -541,42 +533,42 @@ def attribution_metrics(
 #     boot_size: int = 1000,
 #     **kwargs) -> None:
 #     """
-#     Plot return periods for the "ALL" and "NAT" scenarios, including 
+#     Plot return periods for the "ALL" and "NAT" scenarios, including
 #     confidence intervals (CI) for the bootstrapped return periods.
 
 #     Parameters
 #     ----------
 #     ax : matplotlib.axes.Axes
 #         The axes object on which to draw the return period plot.
-    
+
 #     all : xr.DataArray
-#         Data array representing the "ALL" scenario, which includes 
+#         Data array representing the "ALL" scenario, which includes
 #         human influences on climate.
-    
+
 #     nat : xr.DataArray
-#         Data array representing the "NAT" scenario, which represents 
+#         Data array representing the "NAT" scenario, which represents
 #         the natural climate without human influences.
-    
+
 #     fit_function : callable
 #         A statistical distribution or fitting function used to model the data.
-    
+
 #     thresh : float
 #         The threshold value, which is plotted as a horizontal dashed line.
-    
+
 #     direction : str, optional, default = 'descending'
-#         The direction in which to assess exceedance of the threshold. 
+#         The direction in which to assess exceedance of the threshold.
 #         Can be 'descending' or 'ascending'.
-    
+
 #     bootstrap_ci : int, optional, default = 95
 #         The confidence interval (CI) percentage for bootstrapping.
-    
+
 #     boot_size : int, optional, default = 1000
 #         The number of bootstrap samples to generate.
 
 #     Returns
 #     -------
 #     None
-#         This function does not return anything; it modifies the provided 
+#         This function does not return anything; it modifies the provided
 #         axes object in-place.
 #     """
 #     # validation steps
@@ -632,7 +624,7 @@ def attribution_metrics(
 
 #     if all_span_checker:
 #         ax.axvspan(
-#             conf_rp_inf_all[idx], conf_rp_sup_all[idx], 
+#             conf_rp_inf_all[idx], conf_rp_sup_all[idx],
 #             ymin=0, ymax=(thresh - ymin)/ (ymax - ymin),
 #             facecolor='silver', edgecolor=all_color,
 #             linewidth=2., alpha=0.3, zorder=0
@@ -643,7 +635,7 @@ def attribution_metrics(
 
 #     if nat_span_checker:
 #         ax.axvspan(
-#             conf_rp_inf_nat[idx], conf_rp_sup_nat[idx], 
+#             conf_rp_inf_nat[idx], conf_rp_sup_nat[idx],
 #             ymin=0, ymax=(thresh - ymin)/ (ymax - ymin),
 #             facecolor='silver', edgecolor=nat_color,
 #             linewidth=2., alpha=0.3, zorder=0
@@ -651,4 +643,4 @@ def attribution_metrics(
 
 #     ax.legend()
 
-# ############################################################################### 
+# ###############################################################################

@@ -55,20 +55,13 @@ def fit_data(
         An array containing the fitted model parameters. The specific parameters
         returned depend on the chosen distribution and strategy.
     """
-    fit_functions = {
-        'genextreme': likelihood.GEVModel,
-        'norm': likelihood.NormModel,
-        'gamma': likelihood.GammaModel,
-        'genpareto': likelihood.GPDModel
-    }
-
     # Ensure covariates is 2D
     if isinstance(covariates, pd.Series):
         covariates = covariates.values.reshape(-1, 1)
     elif isinstance(covariates, pd.DataFrame):
         covariates = covariates.values
 
-    model = fit_functions[fit_function_name](x, covariates, strategy=strategy)
+    model = likelihood.FIT_FUNCTIONS[fit_function_name](x, covariates, strategy=strategy)
 
     # Fit the model
     if verbose:
@@ -162,7 +155,8 @@ def get_wwa_series(
     """
     Builds the "ALL" (factual) and "NAT" (counterfactual) shifted series used
     by WWA-style attribution plots, ready to be passed directly to
-    `climattr.attribution.histogram_plot` / `climattr.attribution.rp_plot`.
+    `climattr.attribution.risk_based.histogram_plot` /
+    `climattr.attribution.risk_based.rp_plot`.
 
     This is a convenience wrapper around `shift_data` that shifts `x` to
     both reference covariate values in one call.

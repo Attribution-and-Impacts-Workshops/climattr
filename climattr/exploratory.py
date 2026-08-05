@@ -8,7 +8,7 @@ from datetime import datetime
 import matplotlib.pyplot as plt
 import scipy.stats
 
-from climattr.attribution import _rp_plot_data
+from climattr.attribution.utils import _rp_plot_data
 from climattr.utils import (
     get_xy_coords,
     get_percentiles_from_ci,

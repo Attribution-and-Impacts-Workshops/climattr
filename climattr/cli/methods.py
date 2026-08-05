@@ -67,7 +67,7 @@ def method_attribution_metrics(args):
 
     fit_function = getattr(scipy.stats, args.fit_function)
 
-    metrics = eea.attribution.attribution_metrics(
+    metrics = eea.attribution.risk_based.attribution_metrics(
         all_data[args.variable], 
         nat_data[args.variable], 
         fit_function, 
@@ -92,15 +92,15 @@ def method_attribution_plot(args):
 
     fig, [ax1, ax2] = plt.subplots(1, 2, figsize=(8,4))
 
-    eea.attribution.histogram_plot(
+    eea.attribution.risk_based.histogram_plot(
         ax1,
-        all_data[args.variable], 
-        nat_data[args.variable], 
-        fit_function, 
-        args.thresh, 
+        all_data[args.variable],
+        nat_data[args.variable],
+        fit_function,
+        args.thresh,
     )
 
-    eea.attribution.rp_plot(
+    eea.attribution.risk_based.rp_plot(
         ax2,
         all_data[args.variable], 
         nat_data[args.variable], 
