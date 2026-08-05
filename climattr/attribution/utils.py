@@ -566,3 +566,43 @@ def _dataset_to_matrix(ds: xr.Dataset, variables: Sequence[str]) -> np.ndarray:
     return np.concatenate(arrays, axis=1)
 
 ###############################################################################
+
+def _resolve_analogue_groups(
+    past_analogues: xr.Dataset,
+    present_analogues: xr.Dataset):
+    """
+    Validate and align two analogue-group datasets for compositing: restrict
+    both to their shared data variables and confirm both carry a 'time' dim.
+
+    Shared by `climattr.attribution.analogues.composite_differences` and
+    `climattr.attribution.analogues.attribution_metrics`, which both start
+    from the same past/present composite difference but diverge in how they
+    resample it (permutation test vs. independent-group bootstrap).
+
+    Parameters
+    ----------
+    past_analogues : xr.Dataset
+        Dims (time, lat, lon) - the analogue dates for the past period.
+
+    present_analogues : xr.Dataset
+        Dims (time, lat, lon) - the analogue dates for the present period.
+
+    Returns
+    -------
+    tuple
+        `past_analogues`/`present_analogues` restricted to their shared data
+        variables, and the list of those shared variable names.
+    """
+    common_vars = [v for v in past_analogues.data_vars if v in present_analogues.data_vars]
+    if not common_vars:
+        raise ValueError("past_analogues and present_analogues share no data variables")
+
+    past_analogues = past_analogues[common_vars]
+    present_analogues = present_analogues[common_vars]
+
+    if "time" not in past_analogues.dims or "time" not in present_analogues.dims:
+        raise ValueError("both past_analogues and present_analogues must have a 'time' dimension")
+
+    return past_analogues, present_analogues, common_vars
+
+###############################################################################
