@@ -79,3 +79,55 @@ def validate_correction_method(value):
         raise ValueError("method must be either 'add' or 'mult'.")
 
 ###############################################################################
+
+def validate_frequency(value):
+    """
+    Validate if a given anomaly frequency is one of the accepted options.
+
+    Parameters
+    ----------
+    value : str
+        The frequency to validate, which can be 'month' or 'day'.
+
+    Raises
+    ------
+    ValueError
+        If the frequency is not 'month' or 'day'.
+
+    Returns
+    -------
+    None
+        This function does not return any value; it solely performs validation.
+    """
+    if value not in ['month', 'day']:
+        raise ValueError("freq must be either 'month' or 'day'.")
+
+###############################################################################
+
+def validate_distance_metric(value):
+    """
+    Validate if a given distance metric is one of the accepted named
+    metrics, or a custom callable.
+
+    Parameters
+    ----------
+    value : str or callable
+        The distance metric to validate: either one of `metrics`, or a
+        callable `f(event_vector, data_matrix) -> 1d array of distances`.
+
+    Raises
+    ------
+    ValueError
+        If `value` is neither callable nor one of `metrics`.
+
+    Returns
+    -------
+    None
+        This function does not return any value; it solely performs validation.
+    """
+    metrics = ("euclidean", "manhattan", "chebyshev", "cosine", "correlation")
+
+    if not (callable(value) or value in metrics):
+        raise ValueError(f"distance must be callable or one of {metrics}, got {value!r}.")
+
+###############################################################################

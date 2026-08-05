@@ -1,4 +1,7 @@
 import numpy as np
+import xarray as xr
+
+from typing import List, Sequence, Union
 
 from climattr.utils import get_percentiles_from_ci
 
@@ -429,5 +432,137 @@ def _rp_plot_data(
         'thresh_rp_point': thresh_rp_point,
         'mag_ci': mag_ci,
     }
+
+###############################################################################
+
+# Helpers shared between climattr.attribution.analogues' public functions.
+
+def _pairwise_distance(
+    event_vec: np.ndarray,
+    data_2d: np.ndarray,
+    metric: str) -> np.ndarray:
+    """
+    Compute the distance from `event_vec` to every row of `data_2d`, using
+    one of the named metrics ("euclidean", "manhattan", "chebyshev", "cosine", "correlation")
+
+
+    Parameters
+    ----------
+    event_vec : np.ndarray
+        1D array of shape (n_features,), the reference pattern.
+
+    data_2d : np.ndarray
+        2D array of shape (n_time, n_features), the candidate patterns.
+
+    metric : str
+        One of ("euclidean", "manhattan", "chebyshev", "cosine", "correlation")
+.
+
+    Returns
+    -------
+    np.ndarray
+        1D array of shape (n_time,) with the distance of each row of
+        `data_2d` to `event_vec`.
+    """
+    diff = data_2d - event_vec
+
+    if metric == "euclidean":
+        return np.sqrt(np.nansum(diff ** 2, axis=1))
+
+    if metric == "manhattan":
+        return np.nansum(np.abs(diff), axis=1)
+
+    if metric == "chebyshev":
+        return np.nanmax(np.abs(diff), axis=1)
+
+    if metric == "cosine":
+        a = np.nan_to_num(event_vec)
+        b = np.nan_to_num(data_2d)
+        num = b @ a
+        denom = np.linalg.norm(b, axis=1) * np.linalg.norm(a) + 1e-12
+        return 1.0 - num / denom
+
+    if metric == "correlation":
+        a = np.nan_to_num(event_vec)
+        b = np.nan_to_num(data_2d)
+        a_c = a - a.mean()
+        b_c = b - b.mean(axis=1, keepdims=True)
+        num = b_c @ a_c
+        denom = np.linalg.norm(b_c, axis=1) * np.linalg.norm(a_c) + 1e-12
+        return 1.0 - num / denom
+
+    raise ValueError(f"Unknown distance metric {metric!r}; choose a valid distance metric or pass a callable")
+
+###############################################################################
+
+def _get_common_variables(
+    event_pattern: xr.Dataset,
+    all_events: xr.Dataset,
+    variables: Union[Sequence[str], None] = None) -> List[str]:
+    """
+    Resolve which data variables to use from `event_pattern`/`all_events`.
+
+    Parameters
+    ----------
+    event_pattern : xr.Dataset
+        The reference pattern dataset.
+
+    all_events : xr.Dataset
+        The candidate dataset.
+
+    variables : Sequence[str], optional
+        Which data variables to use. Defaults to None (every variable
+        present in both datasets).
+
+    Returns
+    -------
+    List[str]
+        The resolved list of shared variable names.
+    """
+    if variables is not None:
+        missing = [v for v in variables if v not in event_pattern.data_vars or v not in all_events.data_vars]
+        if missing:
+            raise ValueError(f"variables {missing} not found in both datasets")
+        return list(variables)
+
+    common = [v for v in event_pattern.data_vars if v in all_events.data_vars]
+    if not common:
+        raise ValueError("event_pattern and all_events share no common data variables")
+
+    return common
+
+###############################################################################
+
+def _dataset_to_matrix(ds: xr.Dataset, variables: Sequence[str]) -> np.ndarray:
+    """
+    Stack the given data variables of `ds` into a 2D array (time, features).
+
+    Parameters
+    ----------
+    ds : xr.Dataset
+        Dims (lat, lon), optionally also 'time'.
+
+    variables : Sequence[str]
+        Which data variables to stack.
+
+    Returns
+    -------
+    np.ndarray
+        A 2D array of shape (n_time, n_features), or (1, n_features) if
+        `ds` has no 'time' dimension.
+    """
+    has_time = "time" in ds.dims
+
+    arrays = []
+    for var in variables:
+        da = ds[var]
+        if has_time:
+            da = da.transpose("time", "lat", "lon")
+            arrays.append(da.values.reshape(da.sizes["time"], -1))
+        else:
+            da = da.transpose("lat", "lon")
+            arrays.append(da.values.reshape(1, -1))
+
+    return np.concatenate(arrays, axis=1)
 
 ###############################################################################

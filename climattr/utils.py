@@ -13,9 +13,9 @@ from cartopy.mpl.gridliner import LONGITUDE_FORMATTER, LATITUDE_FORMATTER
 from datetime import datetime
 from glob import glob
 import iris.cube
-from typing import Union, List
+from typing import Tuple, Union, List
 
-from climattr.validator import validate_ci
+from climattr.validator import validate_ci, validate_frequency
 
 def add_features(
     ax: cartopy.mpl.geoaxes.GeoAxes, 
@@ -414,70 +414,97 @@ def regrid_dataset(
 ###############################################################################
 
 def calculate_anomalies(
-    dataarray: xr.DataArray,
-    idate: datetime = '1981-01-01',
-    edate: datetime = '2010-12-31',
-    standardize: bool = False) -> xr.DataArray:
+    data: Union[xr.DataArray, xr.Dataset],
+    freq: str = 'month',
+    idate: Union[str, datetime, None] = '1981-01-01',
+    edate: Union[str, datetime, None] = '2010-12-31',
+    standardize: bool = False,
+    return_climatology: bool = False) -> Union[
+        xr.DataArray, xr.Dataset, Tuple[xr.DataArray, xr.DataArray], Tuple[xr.Dataset, xr.Dataset]]:
     """
-    Computes anomalies for a given xarray DataArray based on a specified 
-    reference period.
+    Computes anomalies for a given xarray DataArray or Dataset based on a
+    specified reference period, at either monthly or daily resolution.
 
     Parameters
     ----------
-    dataarray : xr.DataArray
-        The input dataset containing time-series data with a "time" dimension.
+    data : xr.DataArray or xr.Dataset
+        The input data containing time-series data with a "time" dimension.
+
+    freq : str, optional
+        The climatology frequency to remove, either 'month' (climatology
+        grouped by calendar month) or 'day' (climatology grouped by
+        day-of-year). Default is 'month'.
 
     idate : str, optional
-        The start date of the reference period in the format 'YYYY-MM-DD'. 
-        Default is '1981-01-01'.
-        
+        The start date of the reference period in the format 'YYYY-MM-DD'.
+        Default is '1981-01-01'. Pass None together with `edate=None` to use
+        the full time range of `data` as the reference period.
+
     edate : str, optional
-        The end date of the reference period in the format 'YYYY-MM-DD'. 
+        The end date of the reference period in the format 'YYYY-MM-DD'.
         Default is '2010-12-31'.
-        
+
     standardize : bool, optional
-        If True, computes standardized anomalies by dividing the anomaly by the 
-        standard deviation of the reference period. Default is False, which 
+        If True, computes standardized anomalies by dividing the anomaly by the
+        standard deviation of the reference period. Default is False, which
         returns absolute anomalies.
+
+    return_climatology : bool, optional
+        If True, also returns the climatology that was subtracted. Default
+        is False.
 
     Returns
     -------
-    xr.DataArray
-        An array containing the calculated anomalies, where each value 
-        represents the deviation from the monthly climatology of the 
-        reference period.
+    xr.DataArray or xr.Dataset
+        The calculated anomalies, where each value represents the deviation
+        from the `freq` climatology of the reference period. If
+        `return_climatology` is True, a tuple of (anomalies, climatology) is
+        returned instead.
 
     Examples
     --------
-    Compute absolute anomalies based on the 1981-2010 climatology:
-    
+    Compute absolute anomalies based on the 1981-2010 monthly climatology:
+
     >>> anomalies = calculate_anomalies(dataarray, idate="1981-01-01", edate="2010-12-31")
+
+    Compute a day-of-year climatology over the full record:
+
+    >>> anomalies, climatology = calculate_anomalies(
+    ...     dataset, freq='day', idate=None, edate=None, return_climatology=True
+    ... )
     """
-    dataarray = dataarray.load() # load data into memory
+    FREQ_GROUPBY = {'month': 'time.month', 'day': 'time.dayofyear'}
 
-    climatology_mean = dataarray.sel(
-        time=slice(idate, edate)
-    ).groupby("time.month").mean("time")
+    validate_frequency(freq)
 
-    # if standardize is true than divide the anomaly by 
+    data = data.load() # load data into memory
+
+    groupby_key = FREQ_GROUPBY[freq]
+
+    clim_source = data.sel(time=slice(idate, edate)).groupby(groupby_key)
+
+    climatology_mean = clim_source.mean("time", skipna=True)
+
+    # if standardize is true than divide the anomaly by
     # the standard deviation
     if standardize:
-        climatology_std = dataarray.sel(
-            time=slice(idate, edate)
-        ).groupby("time.month").std("time")
+        climatology_std = clim_source.std("time", skipna=True)
 
         anomalies = xr.apply_ufunc(
             lambda x, m, s: (x - m) / s,
-            dataarray.groupby("time.month"),
+            data.groupby(groupby_key),
             climatology_mean,
             climatology_std,
         )
     else:
         anomalies = xr.apply_ufunc(
             lambda x, m: (x - m),
-            dataarray.groupby("time.month"),
+            data.groupby(groupby_key),
             climatology_mean
         )
+
+    if return_climatology:
+        return anomalies, climatology_mean
 
     return anomalies
 
